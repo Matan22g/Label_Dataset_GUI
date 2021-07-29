@@ -4,25 +4,26 @@ __email__ = "matan22g@gmail.com"
 
 import glob
 import os
+import pickle
+import sys
 from os.path import basename
 from pathlib import Path
+
 import cv2
-from PyQt5 import QtCore
 from PyQt5.QtCore import QRect, Qt, QPoint
 from PyQt5.QtGui import QImage, QPixmap, QPainter, QPen
 from PyQt5.QtWidgets import QMainWindow, QWidget, QLabel, QApplication, QGridLayout
-import pickle
-import sys
 
 """
     Interactive select rectangle ROIs and store list of bounding rect.
+    
     Parameters
     ----------
     IM_DIR_PATH :
-        Image dir path in str.
+        Image dir path - str.
 
-    Can be received in two different ways:
-    Via cmd like in the following way: python annotation_tool.py dataset
+    Can be input in two different ways:
+    Via cmd like in the following way: "python main.py YOUR_DATA_SET_PATH"
     Via modifying the constant 'IM_DIR_PATH' below.
 """
 
@@ -79,10 +80,9 @@ class Annotation_GUI(QMainWindow):
 
         self.im_dir = im_dir_path
         pickle_name = "results.pkl"
-        self.pickle_file = f"{self.im_dir}//{pickle_name}"
+        self.pickle_file = str(Path(self.im_dir) / pickle_name)
 
         # Image label to display the rendering
-        self.imgLabel = ImageLabel()
 
         # Loading the images and the saved pickle
         self.load_data()
@@ -91,19 +91,23 @@ class Annotation_GUI(QMainWindow):
         mainWidget = QWidget(self)
         self.setCentralWidget(mainWidget)
         self.layout = QGridLayout(mainWidget)
-        self.layout.addWidget(self.imgLabel)
 
         self.index = 0  # for swiping between the images
+        if self.images:
+            self.imgLabel = ImageLabel()
+            self.layout.addWidget(self.imgLabel)
+            self.show_img(self.images[self.index])
+        else:
+            self.label = QLabel("Invalid Path", self)
 
-        self.show_img(self.images[self.index])
         self.show()
 
     def keyPressEvent(self, event):
 
         # Swiping Images
-        if event.key() == QtCore.Qt.Key_Left:
+        if event.key() == Qt.Key_Left:
             self.index -= 1
-        elif event.key() == QtCore.Qt.Key_Right:
+        elif event.key() == Qt.Key_Right:
             self.index += 1
 
         # Deleting last rect
@@ -145,6 +149,7 @@ class Annotation_GUI(QMainWindow):
                 to_save_dict[im_name].append([rect.topLeft().x(), rect.topLeft().y(), rect.height(), rect.width()])
         with open(self.pickle_file, 'wb') as handle:
             pickle.dump(to_save_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        print(f"Successfully saved in {self.pickle_file}")
 
     def load_data(self):
         # Loading the data set images
