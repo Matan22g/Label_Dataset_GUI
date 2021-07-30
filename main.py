@@ -26,7 +26,6 @@ from PyQt5.QtWidgets import QMainWindow, QWidget, QLabel, QApplication, QGridLay
     Via cmd like in the following way: "python main.py YOUR_DATA_SET_PATH"
     Via modifying the constant 'IM_DIR_PATH' below.
 """
-
 IM_DIR_PATH = r"dataset"
 
 
@@ -71,18 +70,24 @@ class ImageLabel(QLabel):
             qp.drawRect(QRect(self.begin, self.end).normalized())
 
 
-class Annotation_GUI(QMainWindow):
+class AnnotationGUI(QMainWindow):
 
     def __init__(self, im_dir_path):
         super().__init__()
         self.ext = ['png', 'jpg', 'jpeg']  # Add image formats here
         self.setWindowTitle("Annotation Tool")
 
+        # images paths - for loading
+        self.images = []
+        self.index = 0  # for swiping between the images
+
+        # keys = image name,
+        # value = list of rectangles (i.e. [[c1, r1, w1, h1],[c2, r2, w2, h2],...])
+        self.images_labels = {}
+
         self.im_dir = im_dir_path
         pickle_name = "results.pkl"
         self.pickle_file = str(Path(self.im_dir) / pickle_name)
-
-        # Image label to display the rendering
 
         # Loading the images and the saved pickle
         self.load_data()
@@ -92,12 +97,11 @@ class Annotation_GUI(QMainWindow):
         self.setCentralWidget(mainWidget)
         self.layout = QGridLayout(mainWidget)
 
-        self.index = 0  # for swiping between the images
-        if self.images:
+        if self.images:  # Managed to load images
             self.imgLabel = ImageLabel()
             self.layout.addWidget(self.imgLabel)
             self.show_img(self.images[self.index])
-        else:
+        else:  # Empty dir or Invalid path
             self.label = QLabel("Invalid Path", self)
 
         self.show()
@@ -125,12 +129,12 @@ class Annotation_GUI(QMainWindow):
 
         # Rotational swiping using modulo
         self.index = self.index % len(self.images)
-
         self.show_img(self.images[self.index])
 
     def show_img(self, im_path):
-        im_name = basename(Path(im_path)).split('.')[0]
+        # Loading the image and setting the corresponding rectangles
 
+        im_name = basename(Path(im_path)).split('.')[0]
         rgb_array = cv2.imread(im_path)
         rgb_array = cv2.cvtColor(rgb_array, cv2.COLOR_BGR2RGB)
 
@@ -143,16 +147,17 @@ class Annotation_GUI(QMainWindow):
         self.setFixedSize(self.layout.sizeHint())  # adjust the window size to the image
 
     def save_data(self):
+        # Saving in the desired format
         to_save_dict = {im_name: [] for im_name in self.images_labels}
-        for im_name in self.images_labels:  # Saving in the desired format
+        for im_name in self.images_labels:
             for rect in self.images_labels[im_name]:
-                to_save_dict[im_name].append([rect.topLeft().x(), rect.topLeft().y(), rect.height(), rect.width()])
+                to_save_dict[im_name].append([rect.topLeft().x(), rect.topLeft().y(), rect.width(), rect.height()])
         with open(self.pickle_file, 'wb') as handle:
             pickle.dump(to_save_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
         print(f"Successfully saved in {self.pickle_file}")
 
     def load_data(self):
-        # Loading the data set images
+        # Loading the images data set
         files = []
         [files.extend(glob.glob(self.im_dir + '*.' + e)) for e in self.ext]
         if not files:
@@ -163,7 +168,8 @@ class Annotation_GUI(QMainWindow):
         im_names = [basename(Path(file)).split('.')[0] for file in files]
         self.images_labels = {im_name: [] for im_name in im_names}
 
-        if os.path.isfile(self.pickle_file):  # loading if exist
+        # loading saved rectangle data if exist
+        if os.path.isfile(self.pickle_file):
             with open(self.pickle_file, 'rb') as handle:
                 loaded_dict = pickle.load(handle)
             for im_name in loaded_dict:
@@ -179,5 +185,5 @@ if __name__ == '__main__':
     except IndexError:
         im_dir_path = IM_DIR_PATH
 
-    w = Annotation_GUI(im_dir_path)
+    app_window = AnnotationGUI(im_dir_path)
     sys.exit(app.exec_())
